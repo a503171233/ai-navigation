@@ -13,6 +13,7 @@ $db = dcai_db();
 
 // 绑定处理
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    shop_csrf_check();
     $licenseId = (int)($_POST['license_id'] ?? 0);
     $domains = (array)($_POST['domains'] ?? []);
     $ips = (array)($_POST['ips'] ?? []);
@@ -66,6 +67,7 @@ shop_layout_start($pageTitle);
     </div>
 
     <form method="post">
+        <?php echo shop_csrf_field(); ?>
         <input type="hidden" name="license_id" value="<?php echo (int)$lic['id']; ?>">
         <div class="form-group">
             <label>允许域名（每行一个，支持 *.example.com 通配符）</label>

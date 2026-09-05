@@ -27,6 +27,11 @@ class DCAI_Settings
         );
         $stmt->execute([$key, (string)$value, $now]);
         self::$cache[$key] = (string)$value;
+        // 使 dcai_config 的跨请求设置缓存立即失效，保证后台修改即时生效
+        $cacheFile = rtrim((string)dcai_config('storage.path', DCAI_ROOT . '/storage'), '/\\') . '/cache/config_overrides.json';
+        if (is_file($cacheFile)) {
+            @unlink($cacheFile);
+        }
     }
 
     public static function all(): array

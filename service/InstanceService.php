@@ -215,16 +215,11 @@ class DCAI_InstanceService
     {
         $threshold = (int)dcai_config('security.heartbeat_threshold', 180);
         $deadline = date('Y-m-d H:i:s', time() - $threshold);
-        $affected = dcai_db()->query(
-            'SELECT id FROM instances WHERE status = 1 AND (last_heartbeat_at IS NULL OR last_heartbeat_at < ?)',
-            [$deadline]
+        // 单条 UPDATE 即可完成判定并返回受影响行数（与后台实例列表页共用同一口径）
+        return dcai_db()->execute(
+            'UPDATE instances SET status = 0, updated_at = ? WHERE status = 1 AND (last_heartbeat_at IS NULL OR last_heartbeat_at < ?)',
+            [dcai_now(), $deadline]
         );
-        $count = 0;
-        foreach ($affected as $row) {
-            dcai_db()->update('instances', ['status' => 0, 'updated_at' => dcai_now()], 'id = ?', [(int)$row['id']]);
-            $count++;
-        }
-        return $count;
     }
 
     /**

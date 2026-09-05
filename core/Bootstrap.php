@@ -174,70 +174,13 @@ spl_autoload_register(function ($class) {
 function dcai_config($key = null, $default = null)
 {
     static $merged = null;
-    if ($merged === null) {
+    static $loading = false;
+    if ($merged === null && !$loading) {
+        $loading = true;
         $merged = $GLOBALS['DCAI_CONFIG'];
         // settings 表覆盖项：后台"系统设置"写入的键实时生效
-        try {
-            $rows = dcai_db()->query('SELECT skey, svalue FROM settings WHERE skey LIKE \'%_enabled\' OR skey IN (\'site_name\',\'verify_ttl\',\'heartbeat_threshold\',\'rate_verify\',\'rate_api\',\'notify_webhook\',\'notify_email\',\'notify_enabled\',\'store_enabled\',\'store_epay_gateway\',\'store_epay_pid\',\'store_epay_key\',\'store_manual_account\',\'update_source_enabled\',\'update_source_manifest\',\'update_source_auth_token\',\'update_source_timeout\')');
-            $map = [];
-            foreach ($rows as $row) {
-                $map[$row['skey']] = $row['svalue'];
-            }
-            if (isset($map['site_name']) && $map['site_name'] !== '') {
-                $merged['app']['name'] = $map['site_name'];
-            }
-            if (isset($map['verify_ttl']) && $map['verify_ttl'] !== '') {
-                $merged['security']['verify_ttl'] = (int)$map['verify_ttl'];
-            }
-            if (isset($map['heartbeat_threshold']) && $map['heartbeat_threshold'] !== '') {
-                $merged['security']['heartbeat_threshold'] = (int)$map['heartbeat_threshold'];
-            }
-            if (isset($map['rate_verify']) && $map['rate_verify'] !== '') {
-                $merged['security']['rate_limit']['verify'] = (int)$map['rate_verify'];
-            }
-            if (isset($map['rate_api']) && $map['rate_api'] !== '') {
-                $merged['security']['rate_limit']['api'] = (int)$map['rate_api'];
-            }
-            if (isset($map['notify_webhook']) && $map['notify_webhook'] !== '') {
-                $merged['notify']['webhook'] = $map['notify_webhook'];
-            }
-            if (isset($map['notify_email']) && $map['notify_email'] !== '') {
-                $merged['notify']['email'] = $map['notify_email'];
-            }
-            if (isset($map['notify_enabled']) && $map['notify_enabled'] !== '') {
-                $merged['notify']['enabled'] = (int)$map['notify_enabled'];
-            }
-            if (isset($map['store_enabled']) && $map['store_enabled'] !== '') {
-                $merged['store']['enabled'] = (int)$map['store_enabled'];
-            }
-            if (isset($map['store_epay_gateway']) && $map['store_epay_gateway'] !== '') {
-                $merged['store']['epay_gateway'] = $map['store_epay_gateway'];
-            }
-            if (isset($map['store_epay_pid']) && $map['store_epay_pid'] !== '') {
-                $merged['store']['epay_pid'] = (int)$map['store_epay_pid'];
-            }
-            if (isset($map['store_epay_key']) && $map['store_epay_key'] !== '') {
-                $merged['store']['epay_key'] = $map['store_epay_key'];
-            }
-            if (isset($map['store_manual_account']) && $map['store_manual_account'] !== '') {
-                $merged['store']['manual_account'] = $map['store_manual_account'];
-            }
-            // 远程升级源配置
-            if (isset($map['update_source_enabled']) && $map['update_source_enabled'] !== '') {
-                $merged['update_source']['enabled'] = (int)$map['update_source_enabled'];
-            }
-            if (isset($map['update_source_manifest']) && $map['update_source_manifest'] !== '') {
-                $merged['update_source']['manifest'] = $map['update_source_manifest'];
-            }
-            if (isset($map['update_source_auth_token']) && $map['update_source_auth_token'] !== '') {
-                $merged['update_source']['auth_token'] = $map['update_source_auth_token'];
-            }
-            if (isset($map['update_source_timeout']) && $map['update_source_timeout'] !== '') {
-                $merged['update_source']['timeout'] = (int)$map['update_source_timeout'];
-            }
-        } catch (Throwable $e) {
-            // 表不存在或连接异常时静默忽略，回退 config.php
-        }
+        dcai_apply_settings_overrides($merged);
+        $loading = false;
     }
     if ($key === null) {
         return $merged;
@@ -250,6 +193,105 @@ function dcai_config($key = null, $default = null)
         $cursor = $cursor[$segment];
     }
     return $cursor;
+}
+
+/**
+ * settings 覆盖缓存文件路径（storage/cache/config_overrides.json）
+ */
+function dcai_settings_cache_file(): string
+{
+    $base = (string)($GLOBALS['DCAI_CONFIG']['storage']['path'] ?? DCAI_ROOT . '/storage');
+    return rtrim(str_replace('\\', '/', $base), '/') . '/cache/config_overrides.json';
+}
+
+/**
+ * 将 settings 表覆盖项合并进 $merged。
+ * 跨请求采用短 TTL(30s) 文件缓存，把高频 API 的"每请求一次 settings 查询"降为"每 30s 一次"；
+ * DB 不可用时回退过期缓存或 config.php 原值，行为与原先一致。
+ */
+function dcai_apply_settings_overrides(array &$merged): void
+{
+    $cacheFile = dcai_settings_cache_file();
+    $map = null;
+    if (is_file($cacheFile)) {
+        $mtime = (int)@filemtime($cacheFile);
+        if ($mtime > 0 && (time() - $mtime) < 30) {
+            $dec = json_decode((string)@file_get_contents($cacheFile), true);
+            if (is_array($dec)) {
+                $map = $dec;
+            }
+        }
+    }
+    if ($map === null) {
+        try {
+            $rows = dcai_db()->query('SELECT skey, svalue FROM settings WHERE skey LIKE \'%_enabled\' OR skey IN (\'site_name\',\'verify_ttl\',\'heartbeat_threshold\',\'rate_verify\',\'rate_api\',\'notify_webhook\',\'notify_email\',\'notify_enabled\',\'store_enabled\',\'store_epay_gateway\',\'store_epay_pid\',\'store_epay_key\',\'store_manual_account\',\'update_source_enabled\',\'update_source_manifest\',\'update_source_auth_token\',\'update_source_timeout\')');
+            $map = [];
+            foreach ($rows as $row) {
+                $map[$row['skey']] = $row['svalue'];
+            }
+            $dir = dirname($cacheFile);
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0755, true);
+            }
+            @file_put_contents($cacheFile, json_encode($map, JSON_UNESCAPED_UNICODE), LOCK_EX);
+        } catch (Throwable $e) {
+            // 表不存在或连接异常：回退过期缓存 > 空映射（即全部使用 config.php 原值）
+            $dec = json_decode((string)@file_get_contents($cacheFile), true);
+            $map = is_array($dec) ? $dec : [];
+        }
+    }
+    if (isset($map['site_name']) && $map['site_name'] !== '') {
+        $merged['app']['name'] = $map['site_name'];
+    }
+    if (isset($map['verify_ttl']) && $map['verify_ttl'] !== '') {
+        $merged['security']['verify_ttl'] = (int)$map['verify_ttl'];
+    }
+    if (isset($map['heartbeat_threshold']) && $map['heartbeat_threshold'] !== '') {
+        $merged['security']['heartbeat_threshold'] = (int)$map['heartbeat_threshold'];
+    }
+    if (isset($map['rate_verify']) && $map['rate_verify'] !== '') {
+        $merged['security']['rate_limit']['verify'] = (int)$map['rate_verify'];
+    }
+    if (isset($map['rate_api']) && $map['rate_api'] !== '') {
+        $merged['security']['rate_limit']['api'] = (int)$map['rate_api'];
+    }
+    if (isset($map['notify_webhook']) && $map['notify_webhook'] !== '') {
+        $merged['notify']['webhook'] = $map['notify_webhook'];
+    }
+    if (isset($map['notify_email']) && $map['notify_email'] !== '') {
+        $merged['notify']['email'] = $map['notify_email'];
+    }
+    if (isset($map['notify_enabled']) && $map['notify_enabled'] !== '') {
+        $merged['notify']['enabled'] = (int)$map['notify_enabled'];
+    }
+    if (isset($map['store_enabled']) && $map['store_enabled'] !== '') {
+        $merged['store']['enabled'] = (int)$map['store_enabled'];
+    }
+    if (isset($map['store_epay_gateway']) && $map['store_epay_gateway'] !== '') {
+        $merged['store']['epay_gateway'] = $map['store_epay_gateway'];
+    }
+    if (isset($map['store_epay_pid']) && $map['store_epay_pid'] !== '') {
+        $merged['store']['epay_pid'] = (int)$map['store_epay_pid'];
+    }
+    if (isset($map['store_epay_key']) && $map['store_epay_key'] !== '') {
+        $merged['store']['epay_key'] = $map['store_epay_key'];
+    }
+    if (isset($map['store_manual_account']) && $map['store_manual_account'] !== '') {
+        $merged['store']['manual_account'] = $map['store_manual_account'];
+    }
+    // 远程升级源配置
+    if (isset($map['update_source_enabled']) && $map['update_source_enabled'] !== '') {
+        $merged['update_source']['enabled'] = (int)$map['update_source_enabled'];
+    }
+    if (isset($map['update_source_manifest']) && $map['update_source_manifest'] !== '') {
+        $merged['update_source']['manifest'] = $map['update_source_manifest'];
+    }
+    if (isset($map['update_source_auth_token']) && $map['update_source_auth_token'] !== '') {
+        $merged['update_source']['auth_token'] = $map['update_source_auth_token'];
+    }
+    if (isset($map['update_source_timeout']) && $map['update_source_timeout'] !== '') {
+        $merged['update_source']['timeout'] = (int)$map['update_source_timeout'];
+    }
 }
 
 function dcai_db(): DCAI_Database
@@ -315,30 +357,6 @@ function dcai_ip_in_cidr(string $ip, string $cidr): bool
     if ($bits === null || !is_numeric($bits) || (int)$bits < 0 || (int)$bits > 128) {
         return false;
     }
-    $bits = (int)$bits;
-    $ver = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) ? 4 : 6;
-    if ($ver === 4 && strpos($net, ':') !== false) {
-        return false;
-    }
-    if ($ver === 6 && strpos($net, ':') === false) {
-        return false;
-    }
-    if ($bits > ($ver === 4 ? 32 : 128)) {
-        return false;
-    }
-    $ipBin = inet_pton($ip);
-    $netBin = inet_pton($net);
-    if ($ipBin === false || $netBin === false) {
-        return false;
-    }
-    if ($ver === 4) {
-        $mask = $bits === 0 ? 0 : (0xFFFFFFFF << (32 - $bits)) & 0xFFFFFFFF;
-        return (unpack('N', $ipBin)[1] & $mask) === (unpack('N', $netBin)[1] & $mask);
-    }
-    $mask = str_repeat("\xFF", intdiv($bits, 8));
-    if ($bits % 8 !== 0) {
-        $mask .= chr(0xFF << (8 - $bits % 8) & 0xFF);
-    }
-    $mask = str_pad($mask, 16, "\0");
-    return (substr($ipBin, 0, strlen($mask)) & $mask) === (substr($netBin, 0, strlen($mask)) & $mask);
+    // 收敛实现：统一走 DCAI_Util::ipInCidr（IPv4/IPv6 前缀掩码判断）
+    return DCAI_Util::ipInCidr($ip, $net, (int)$bits);
 }

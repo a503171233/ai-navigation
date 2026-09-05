@@ -22,10 +22,11 @@ if (strpos($uri, '/api/v1/') === 0 || strpos($uri, '/api/') === 0) {
 }
 
 // 商城门户：/shop/* 映射到 public/shop/{page}.php
+// 页面名白名单限定 [a-z0-9_]，避免把 URL 片段拼入 require 路径造成越权访问
 if (strpos($uri, '/shop') === 0) {
-    $page = trim(str_replace('/shop', '', $uri), '/');
+    $page = strtolower(trim(str_replace('/shop', '', $uri), '/'));
     $pageFile = dirname(__DIR__) . '/public/shop/' . ($page === '' ? 'home.php' : $page . '.php');
-    if (is_file($pageFile)) {
+    if (($page === '' || preg_match('#^[a-z0-9_]+$#', $page)) && is_file($pageFile)) {
         require $pageFile;
     } else {
         http_response_code(404);

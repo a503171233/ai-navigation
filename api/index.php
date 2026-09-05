@@ -72,6 +72,12 @@ function dcai_nonce_used(string $nonce): bool
 function dcai_cleanup_nonces(int $ttl): void
 {
     global $nonceDir;
+    // 限频：全局目录扫描最多每 60s 一次，避免高流量下每个请求 O(N) 遍历 nonce 目录
+    $stamp = $nonceDir . '/.last_cleanup';
+    if (is_file($stamp) && (time() - (int)@file_get_contents($stamp)) < 60) {
+        return;
+    }
+    @file_put_contents($stamp, (string)time(), LOCK_EX);
     foreach (glob($nonceDir . '/*.tmp') ?: [] as $f) {
         if (is_file($f) && (time() - filemtime($f)) > $ttl) {
             @unlink($f);
@@ -136,6 +142,17 @@ if (!$isPublicAction) {
         DCAI_Response::fail(1003, '时间戳过期或 nonce 重复');
     }
     dcai_cleanup_nonces((int)dcai_config('security.nonce_ttl', 300));
+
+    // 未注册阶段的公开动作统一按 IP 限流（register/offline 等；verify 走下方专属限流）
+    // 说明：app_secret 随客户端 SDK 分发，单凭签名无法区分正常客户机与恶意脚本，
+    //       需以 IP 兜底防针对任意授权码/产品的批量探测。
+    if ($resource === 'instance' || $resource === 'offline') {
+        $apiLimit = (int)dcai_config('security.rate_limit.api', 120);
+        $rl = new DCAI_RateLimit();
+        if (!$rl->allow('pubip:' . dcai_client_ip(), $apiLimit)) {
+            DCAI_Response::fail(1004, '请求过于频繁');
+        }
+    }
 
     // verify 限流：IP + 授权码
     if ($resource === 'auth' && $action === 'verify') {

@@ -54,6 +54,57 @@ class DCAI_Store
         return [true, $buyer];
     }
 
+    // ---------- 买家登录失败锁定（防撞库/爆破，与后台登录同策略） ----------
+
+    /**
+     * 查询登录锁定状态
+     * @return array [bool 是否允许继续尝试, string 提示]
+     */
+    public static function loginLockState(string $email, string $ip): array
+    {
+        $max = (int)dcai_config('security.login_max_fail', 5);
+        $lockMinutes = (int)dcai_config('security.login_lock_minutes', 15);
+        $key = 'buyer_fail_' . md5(strtolower($email) . '|' . $ip);
+        $until = (int)DCAI_Settings::get($key . '_until', 0);
+        if ($until > time()) {
+            $left = (int)ceil(($until - time()) / 60);
+            return [false, "登录失败次数过多，请 {$left} 分钟后再试"];
+        }
+        if ($until > 0 && $until <= time()) {
+            DCAI_Settings::set($key, 0);
+            DCAI_Settings::set($key . '_until', 0);
+        }
+        if ((int)DCAI_Settings::get($key, 0) >= $max) {
+            DCAI_Settings::set($key . '_until', time() + $lockMinutes * 60);
+            return [false, "登录失败次数过多，已锁定 {$lockMinutes} 分钟"];
+        }
+        return [true, ''];
+    }
+
+    /**
+     * 记录一次登录失败；达到阈值即锁定
+     */
+    public static function recordLoginFail(string $email, string $ip): void
+    {
+        $max = (int)dcai_config('security.login_max_fail', 5);
+        $key = 'buyer_fail_' . md5(strtolower($email) . '|' . $ip);
+        $fail = (int)DCAI_Settings::get($key, 0) + 1;
+        DCAI_Settings::set($key, $fail);
+        if ($fail >= $max) {
+            DCAI_Settings::set($key . '_until', time() + (int)dcai_config('security.login_lock_minutes', 15) * 60);
+        }
+    }
+
+    /**
+     * 登录成功后清零失败计数
+     */
+    public static function clearLoginFail(string $email, string $ip): void
+    {
+        $key = 'buyer_fail_' . md5(strtolower($email) . '|' . $ip);
+        DCAI_Settings::set($key, 0);
+        DCAI_Settings::set($key . '_until', 0);
+    }
+
     // ============================================================
     // 试用模式（Trial）
     // ============================================================

@@ -9,8 +9,11 @@ if ($currentBuyer) {
     exit;
 }
 
+$error = '';
+
 // 注册买家
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    shop_csrf_check();
     $email = strtolower(trim((string)($_POST['email'] ?? '')));
     $password = (string)($_POST['password'] ?? '');
     $password2 = (string)($_POST['password2'] ?? '');
@@ -45,6 +48,7 @@ shop_layout_start($pageTitle);
         <div class="shop-alert shop-alert-danger"><?php echo DCAI_Util::e($error); ?></div>
     <?php endif; ?>
     <form method="post" data-validate novalidate>
+        <?php echo shop_csrf_field(); ?>
         <div class="form-group">
             <label>邮箱（登录账号）</label>
             <input type="email" name="email" class="form-control" required autofocus value="<?php echo DCAI_Util::e($_POST['email'] ?? ''); ?>">

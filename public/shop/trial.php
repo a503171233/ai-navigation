@@ -21,6 +21,7 @@ if ($productId > 0) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $productId > 0) {
+    shop_csrf_check();
     $product = dcai_db()->queryOne(
         'SELECT * FROM products WHERE id = ? AND status = 1 AND trial_enabled = 1 AND trial_days > 0',
         [$productId]
@@ -103,6 +104,7 @@ shop_layout_start($pageTitle);
             · 到期后授权自动失效，不影响购买正式版
         </div>
         <form method="post" data-confirm="确认申请该产品试用授权？">
+            <?php echo shop_csrf_field(); ?>
             <input type="hidden" name="product_id" value="<?php echo (int)$product['id']; ?>">
             <button type="submit" class="btn btn-primary btn-block btn-lg">立即领取试用授权</button>
         </form>

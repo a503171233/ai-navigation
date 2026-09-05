@@ -24,6 +24,7 @@ if (!$product) {
 $error = '';
 $orderNo = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    shop_csrf_check();
     $channel = (string)($_POST['pay_channel'] ?? 'manual');
     $note = trim((string)($_POST['customer_note'] ?? ''));
     if (!in_array($channel, ['manual', 'epay', 'alipay', 'wxpay'], true)) {
@@ -54,6 +55,7 @@ shop_layout_start($pageTitle);
         <tr><td>价格</td><td class="amount-total"><?php echo shop_amount($product['sale_price']); ?></td></tr>
     </table>
     <form method="post" class="mt-16" style="max-width:640px;">
+        <?php echo shop_csrf_field(); ?>
         <input type="hidden" name="product_id" value="<?php echo (int)$product['id']; ?>">
         <div class="form-group">
             <label>支付方式</label>

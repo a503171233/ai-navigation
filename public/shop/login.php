@@ -10,19 +10,30 @@ if ($currentBuyer) {
     exit;
 }
 
+$error = '';
+
 // 买家登录
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    shop_csrf_check();
     $email = strtolower(trim((string)($_POST['email'] ?? '')));
     $password = (string)($_POST['password'] ?? '');
-    $lg = DCAI_Store::buyerLogin($email, $password);
-    if (!$lg[0]) {
-        $error = $lg[1];
+    // 失败次数锁定（与后台登录同策略）
+    [$lockOk, $lockMsg] = DCAI_Store::loginLockState($email, dcai_client_ip());
+    if (!$lockOk) {
+        $error = $lockMsg;
     } else {
-        session_regenerate_id(true);
-        $_SESSION['dcai_buyer_id'] = (int)$lg[1]['id'];
-        shop_flash('success', '登录成功，欢迎回来！');
-        header('Location: ' . shop_url('home'));
-        exit;
+        $lg = DCAI_Store::buyerLogin($email, $password);
+        if (!$lg[0]) {
+            $error = $lg[1];
+            DCAI_Store::recordLoginFail($email, dcai_client_ip());
+        } else {
+            DCAI_Store::clearLoginFail($email, dcai_client_ip());
+            session_regenerate_id(true);
+            $_SESSION['dcai_buyer_id'] = (int)$lg[1]['id'];
+            shop_flash('success', '登录成功，欢迎回来！');
+            header('Location: ' . shop_url('home'));
+            exit;
+        }
     }
 }
 
@@ -36,6 +47,7 @@ shop_layout_start($pageTitle);
         <div class="shop-alert shop-alert-danger"><?php echo DCAI_Util::e($error); ?></div>
     <?php endif; ?>
     <form method="post">
+        <?php echo shop_csrf_field(); ?>
         <div class="form-group">
             <label>邮箱</label>
             <input type="email" name="email" class="form-control" required autofocus value="<?php echo DCAI_Util::e($_POST['email'] ?? ''); ?>">

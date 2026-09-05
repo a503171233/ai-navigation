@@ -2,12 +2,12 @@
 
 | 项目名称 | DCAI 授权系统 |
 |---|---|
-| 文档版本 | V1.3.0 |
-| 编制日期 | 2026-09-04 |
+| 文档版本 | V1.3.1 |
+| 编制日期 | 2026-09-05 |
 | 技术栈 | PHP 8.2 / MySQL 5.6 / Nginx(Apache) + PHP-FPM |
-| 文档状态 | 正式版（含 V1.1/V1.2/V1.3 全部特性） |
+| 文档状态 | 正式版（含 V1.1/V1.2/V1.3/V1.3.1 全部特性） |
 
-> **版本说明**：本文档随系统演进持续更新。V1.2 新增"Skill 技能管理模块"（见第 13 章）；V1.3 新增机器码绑定、试用模式、离线激活、Python SDK 与沙箱降级模式（见第 14~18 章）。
+> **版本说明**：本文档随系统演进持续更新。V1.2 新增"Skill 技能管理模块"（见第 13 章）；V1.3 新增机器码绑定、试用模式、离线激活、Python SDK 与沙箱降级模式（见第 14~18 章）；V1.3.1 新增全站 UI 体系化优化（Apple 流体设计 + 统一背景图 + 二级折叠导航）与 GitHub 在线更新（见第 19、20 章）。
 
 ---
 
@@ -31,6 +31,8 @@
 16. [离线激活](#16-离线激活)
 17. [Python SDK](#17-python-sdk)
 18. [沙箱降级模式](#18-沙箱降级模式)
+19. [全站 UI 体系优化（Apple 流体设计）](#19-全站-ui-体系优化apple-流体设计)
+20. [GitHub 在线更新](#20-github-在线更新)
 
 ---
 
@@ -1583,6 +1585,7 @@ return [
         'base_url' => 'https://auth.example.com',
         'timezone' => 'Asia/Shanghai',
         'debug' => false,
+        'version' => '1.3.1',           // 系统版本号（升级服务版本门禁依据，须高于线上当前版本才可应用）
     ],
     'security' => [
         'rsa_private_key' => '-----BEGIN PRIVATE KEY-----...',
@@ -1595,6 +1598,13 @@ return [
     'storage' => [
         'path' => __DIR__ . '/../storage',
         'max_package_size' => 1024 * 1024 * 200, // 200MB
+    ],
+    'update_source' => [
+        // 远程升级源（GitHub 在线更新，V1.3.1）
+        'enabled'    => 0,    // 1=开启远程更新检查
+        'manifest'   => '',   // 远程 manifest.json URL（如 https://gcore.jsdelivr.net/gh/OWNER/REPO@main/release/manifest.json）
+        'auth_token' => '',   // 私有仓库 Bearer Token（公开仓库留空）
+        'timeout'    => 15,   // 请求超时(秒)
     ],
 ];
 ```
@@ -1632,6 +1642,9 @@ return ['total' => array_sum(array_column($rows, 'c')), 'days' => $rows];
 | D11 | 离线激活文件采用 RSA-SHA256 签名 + 有效期，激活记录落库可作废 | 断网场景可离线验真，服务端可随时吊销，防伪造/防重放（V1.3） |
 | D12 | 产品/授权码双轨试用参数（products.trial_enabled/trial_days + licenses.trial_days），试用授权 source=3 | 自助申请入口在产品侧开放，授权码记录独立试用周期，来源可追踪（V1.3） |
 | D13 | Sandbox 双模式：优先子进程隔离（proc_open），不可用时降级进程内命名空间沙箱 + tick 超时 | 兼容宝塔面板 disable_functions 禁用 proc_open 的常见部署，保证远程模块功能可用（V1.3） |
+| D14 | 全站视觉统一为单一主题色 + Apple 流体动效（弹簧曲线变量、按钮 :active 缩放、弹窗入场动画），`prefers-reduced-motion` 无条件降级 | 后台/商城一体品牌感，动效克制不干扰操作，同时满足无障碍（V1.3.1） |
+| D15 | 升级包发布后自动向低版本在线实例下发 update 命令（`DCAI_CommandService::issue`） | 云端实例无需主动轮询升级，发布即推送提示，缩短升级周期（V1.3.1） |
+| D16 | 远程更新 manifest 托管 GitHub，url 直链优先 gcore.jsdelivr.net | 国内网络实测 raw.githubusercontent.com / cdn.jsdelivr.net 不可达，gcore 镜像稳定可达（V1.3.1） |
 
 ## 13. Skill 技能管理模块
 
@@ -1897,4 +1910,137 @@ return self::runInProcess($code, $params); // proc_open 禁用时自动降级
 
 ---
 
-*本文档为 DCAI 授权系统 V1.3.0 的开发说明书，后续如需求变更请同步更新本文档版本。*
+## 19. 全站 UI 体系优化（Apple 流体设计）
+
+**目标**：后台/商城视觉统一、多屏自适应、交互反馈一致、无障碍友好。纯前端改动（CSS/JS/HTML 结构），无数据库变更。
+
+### 19.1 设计语言
+
+- **主题色统一**：后台与商城统一为 `--primary:#4f6ef7`（商城原 `#4f46e5` 已对齐）；
+- **Apple 流体动效变量**（admin.css / shop.css 头部统一声明）：
+
+```css
+--spring-fast:  cubic-bezier(.32,.72,0,1);   /* 快速弹簧 */
+--spring-smooth:cubic-bezier(.22,.61,.36,1); /* 平滑弹簧 */
+--dur-fast: 180ms; --dur-mid: 260ms;
+```
+
+- 按钮 `:active{transform:scale(.97)}` 按压反馈；modal / 登录框入场 keyframe；`prefers-reduced-motion` 媒体查询将动画整体降级为淡入，满足无障碍。
+
+### 19.2 统一背景图（4 张 SVG 软渐变）
+
+| 文件 | 用途 |
+|---|---|
+| `public/assets/images/bg-admin.svg` | 后台桌面端 |
+| `public/assets/images/bg-admin-mobile.svg` | 后台移动端（简化版，不干扰文字） |
+| `public/assets/images/bg-shop.svg` | 商城桌面端 |
+| `public/assets/images/bg-shop-mobile.svg` | 商城移动端（简化版） |
+
+- `background-attachment:fixed` 固定背景；移动端 `@media` 自动切换简化背景。
+
+### 19.3 导航重构（二级折叠目录）
+
+- **后台** `public/admin/includes/header.php`：原 17 项平铺 → `$menuGroups` 6 主题分组（概览 / 产品与授权 / 实例运维 / 分发升级 / 商城运营 / 系统）；`$activeGroup` 自动展开当前项所在组；权限过滤 `$visibleGroups`；移动端 off-canvas 侧栏 + 遮罩；
+- **商城** `public/shop/_init.php`：购物组（产品/订单/授权）+ 账户组（登录/注册），登录后切换为用户名组（授权/订单/试用/退出）；移动端 ☰ 抽屉。
+
+### 19.4 回归发现的 3 个真实缺陷（已修复）
+
+1. **服务端/客户端 hidden 状态不同步**：`header.php` 输出 HTML 属性 `hidden`，CSS/JS 操作的是 class `hidden` → 折叠永远失效。修复：服务端统一输出 `class="nav-group-body hidden"`；
+2. **折叠链接可被 Tab 聚焦（a11y）**：`.hidden` 仅 `opacity:0` 仍可键盘聚焦不可见链接。修复：`visibility:hidden` + `transition:visibility 0s linear`（展开立即可见、收起动画结束后隐藏）；
+3. **商城脚本 head 同步执行致事件未绑定**：`shop.js` 为同步 IIFE，在 `<head>` 执行时 `#shopMenuBtn`/`.nav-group` 尚不存在。修复：`<script defer>`。
+
+### 19.5 验证
+
+- 静态回归 `tests/ui_regression.py` 29/29（后台登录、19 后台页、6 商城页、商城注册、授权码搜索、CSV 导出、API 健康）；
+- 真实浏览器（agent-browser）：后台 6 组导航初态仅概览展开 → 点击展开/收起状态机正确 → 5 个二级导航跳转 200 → 搜索过滤生效 → 生成授权码 modal 提交成功 → 商城注册/自动登录/错误密码提示 → 移动端 390x844 侧栏抽屉 → 背景图 computedStyle 确认加载；
+- **经验**：① HTML `hidden` 属性 ≠ CSS `.hidden` 类，服务端渲染与客户端 JS 必须统一约定；② `<head>` 内同步脚本在 DOM 就绪前执行，交互失效先查 script 位置与 defer；③ `opacity:0` 隐藏仍可聚焦，折叠菜单需 `visibility` + 延迟 transition。
+
+---
+
+## 20. GitHub 在线更新
+
+**目标**：升级包托管 GitHub，后台一键「检查远程更新 → 下载并发布 → 一键升级」，无需手动上传 zip。V1.3.1 起系统已内置完整机制，零代码改动即可启用。
+
+### 20.1 原理链路（`service/SystemUpdateService.php`）
+
+| 环节 | 方法 | 说明 |
+|---|---|---|
+| 检查更新 | `checkRemote()` | GET manifest.json；校验 `version > 当前版本` 且 `当前版本 >= min_version`；返回更新信息 |
+| 下载发布 | `fetchRemote()` | 按 manifest `url` 下载 zip（可选 Bearer auth）→ 校验 MD5 → 存入 `storage/system_updates/` → 登记为「已发布」 |
+| 应用升级 | `apply()` | 备份 → 白名单替换 → 迁移脚本 → 版本号写入 config → 失败自动回滚（保留最近 3 份备份） |
+
+- 配置项 `update_source`（`config/config.php` 默认值，后台「系统升级」页保存后写 `settings` 表 `update_source_*`，启动时由 `core/Bootstrap.php` 合并覆盖）；
+- manifest 字段（与 `checkRemote()` 期望完全一致）：`version / min_version / changelog / url / md5 / size / release_at`；
+- 校验规则：`version` 合法且高于当前版本；`min_version` 非空时当前版本须 >= 它；`md5` 下载后强校验。
+
+### 20.2 manifest 生成（`tests/build_manifest.php`）
+
+- 自动读取 `config.php app.version` + 升级包内 `system.json` + 计算 MD5/字节大小，生成两个文件：
+
+| 输出 | 指向 | 适用 |
+|---|---|---|
+| `release/manifest.json` | `dcai_sysupdate_v{version}_full.zip`（min_version=1.0.0） | 任意旧版本可升级（推荐后台填此） |
+| `release/manifest_incr.json` | `dcai_sysupdate_v{version}.zip`（min_version=上一版） | 仅上一版可升级（可选） |
+
+- 脚本顶部可配 `$owner / $repo / $branch / $baseUrl`（默认 `https://gcore.jsdelivr.net/gh/{owner}/{repo}@{branch}`）。
+
+### 20.3 国内网络直链选型（实测结论）
+
+| 直链 | 实测结果 |
+|---|---|
+| `raw.githubusercontent.com` | ❌ 超时不可达 |
+| `cdn.jsdelivr.net` | ⚠️ 跟随重定向后超时 |
+| **`gcore.jsdelivr.net`**（推荐） | ✅ HTTP 200（约 1.4s） |
+| `gh-proxy.com` | ✅ 可用（第三方代理，稳定性依赖其服务） |
+| `github.com` / `api.github.com` | ✅ 可用（但 zip 下载会 302 到 objects.githubusercontent.com，实测超时） |
+
+> jsDelivr 有缓存：首次推送文件后 1~5 分钟生效，先 `curl -sI` 验证 200 再配置后台。
+
+### 20.4 后台配置步骤
+
+1. 后台 → 系统 → 系统升级 → 「远程升级源配置」卡片；
+2. 启用远程更新=开启；manifest 地址填 `https://gcore.jsdelivr.net/gh/{用户}/{仓库}@main/release/manifest.json`；超时默认 15；私有仓库填 Token（`repo` 权限），公开仓库留空；
+3. 保存配置 → 点「🔄 检查远程更新」：有新版显示橙色卡片 → 「⬇ 下载并发布此版本」（校验 MD5 后登记已发布）→ 列表中点「一键升级」（自动备份/替换/迁移/回滚）。
+
+### 20.5 发布新版本完整流程
+
+```bash
+# 1. 改代码 + 提升版本号（config/config.php app.version），有 DB 变更则更新 migrate 脚本
+# 2. 打包（自动读版本号）
+php tests/build_sysupdate.php     # 增量包
+php tests/build_fullupdate.php    # 全量包
+# 3. 生成 manifest（先改 tests/build_manifest.php 顶部 $owner/$repo）
+php tests/build_manifest.php
+# 4. 推送 GitHub
+git add release/ && git commit -m "release vX.Y.Z" && git push
+# 5. 验证直链（jsDelivr 需等缓存预热）
+curl -sI https://gcore.jsdelivr.net/gh/{user}/{repo}@main/release/dcai_sysupdate_vX.Y.Z_full.zip | head -1
+# 6. 线上后台 → 检查远程更新 → 下载并发布 → 一键升级
+```
+
+### 20.6 升级包规范（打包脚本已固化，勿破坏）
+
+- 升级包顶层必须含 `system.json`（`version/min_version/changelog/files/delete_files/migrate`）；
+- **版本门禁**：`version` 必须高于线上当前版本（`upload()`/`checkRemote()` 均拒绝），改动前先 `curl .../api/healthz` 探测线上版本；
+- **纯 UI/无 DB 变更的增量包 `migrate` 必须置空**，否则 `apply()` 因找不到迁移脚本而回滚；
+- **升级包内不携带 `sdk/*.py`**（旧版系统上传白名单无 py 会拦截），Python SDK 由 `install/migrate_v1.3.php` 内嵌 base64 在升级落盘时写入；
+- 打包排除：`tests/ release/ storage/* docs/ .workbuddy/ .ai-memory/ .git/ config.php` 等（三个 build 脚本已配置）。
+
+### 20.7 云端实例自动升级提示
+
+后台「系统升级」发布更新包后，`service/UpdateService.php` 通过 `DCAI_CommandService::issue` 自动向低版本且在线实例下发 `update` 命令，实例 SDK 轮询命令后弹出升级提示（无需实例手动检测）。
+
+### 20.8 故障排查
+
+| 现象 | 处理 |
+|---|---|
+| 检查无反应/提示已最新 | 先 curl manifest 验证 200；或 version 不高于当前、min_version 不满足 |
+| MD5 校验失败 | manifest md5 写错，或 jsDelivr 缓存了旧包（换 gcore 域名/等缓存刷新） |
+| HTTP 404 | URL 与仓库实际结构不一致（区分 `@main` 分支写法、检查 release/ 目录） |
+| 下载超时 | 换 gcore/cdn/gh-proxy 直链，或改用自建 CDN 托管 |
+| 私有仓库 401/403 | Token 无 repo 权限或过期；公开仓库留空 |
+| 升级失败自动回滚 | 看 `storage/logs/app.log`：常见 min_version 不满足、migrate 缺失、白名单缺文件 |
+
+---
+
+*本文档为 DCAI 授权系统 V1.3.1 的开发说明书，后续如需求变更请同步更新本文档版本。*

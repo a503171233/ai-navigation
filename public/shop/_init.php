@@ -42,6 +42,34 @@ function shop_flash(string $type, string $msg): void
     $_SESSION['dcai_shop_flash'] = ['type' => $type, 'msg' => $msg];
 }
 
+// ---------- 商城前台 CSRF 防护（买家会话内独立令牌） ----------
+function shop_csrf_token(): string
+{
+    if (empty($_SESSION['dcai_shop_csrf'])) {
+        $_SESSION['dcai_shop_csrf'] = bin2hex(random_bytes(16));
+    }
+    return $_SESSION['dcai_shop_csrf'];
+}
+
+function shop_csrf_field(): string
+{
+    return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars(shop_csrf_token(), ENT_QUOTES, 'UTF-8') . '">';
+}
+
+function shop_csrf_ok(): bool
+{
+    $token = (string)($_POST['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+    return $token !== '' && hash_equals((string)($_SESSION['dcai_shop_csrf'] ?? ''), $token);
+}
+
+function shop_csrf_check(): void
+{
+    if (!shop_csrf_ok()) {
+        http_response_code(400);
+        exit('页面校验失败，请刷新后重试');
+    }
+}
+
 /** 商城基础 URL（相对 /shop） */
 function shop_url(string $path = ''): string
 {
