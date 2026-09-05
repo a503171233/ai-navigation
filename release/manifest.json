@@ -1,0 +1,9 @@
+{
+    "version": "1.3.1",
+    "min_version": "1.0.0",
+    "changelog": "DCAI 授权系统 V1.3.1 全量升级包\n- 全站 UI 视觉统一（Apple 流体动效 + 统一主题色 + prefers-reduced-motion 降级）\n- 统一背景图（4 张 SVG 软渐变，移动端自动简化）\n- 导航重构（后台 6 主题分组 + 二级折叠目录 + 移动端 off-canvas 侧栏；商城分组导航 + 抽屉）\n- 更新包发布后自动向低版本在线实例下发 update 命令\n- 从任意旧版本升级为完整 V1.3.1（含机器码绑定、试用、离线激活、Python SDK、沙箱降级）",
+    "url": "https://gcore.jsdelivr.net/gh/a503171233/ai-navigation@main/release/dcai_sysupdate_v1.3.1_full.zip",
+    "md5": "9bcf86bba8e3c6d78a79d17d22a178b2",
+    "size": 274591,
+    "release_at": "2026-09-05"
+}
