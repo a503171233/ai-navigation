@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f5f3ff"/>
+      <stop offset="45%" stop-color="#eef2ff"/>
+      <stop offset="100%" stop-color="#ecfeff"/>
+    </linearGradient>
+    <radialGradient id="b1" cx="20%" cy="25%" r="50%">
+      <stop offset="0%" stop-color="#ddd6fe" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#ddd6fe" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="b2" cx="85%" cy="75%" r="55%">
+      <stop offset="0%" stop-color="#a5f3fc" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#a5f3fc" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="b3" cx="70%" cy="15%" r="40%">
+      <stop offset="0%" stop-color="#c7d2fe" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#c7d2fe" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1440" height="900" fill="url(#g)"/>
+  <rect width="1440" height="900" fill="url(#b1)"/>
+  <rect width="1440" height="900" fill="url(#b2)"/>
+  <rect width="1440" height="900" fill="url(#b3)"/>
+</svg>
