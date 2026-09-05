@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DCAI 授权系统 · 全站 UI 优化回归测试报告</title>
+<style>
+  :root {
+    --primary: #4f6ef7;
+    --primary-light: #eef1ff;
+    --bg: #f5f6fa;
+    --card: #ffffff;
+    --text: #1f2430;
+    --text-2: #6b7280;
+    --ok: #16a34a;
+    --ok-bg: #ecfdf5;
+    --border: #e5e7eb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 32px 16px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
+  h2 { font-size: 20px; font-weight: 650; margin: 32px 0 16px; padding-left: 12px; border-left: 4px solid var(--primary); }
+  h3 { font-size: 16px; font-weight: 600; margin: 20px 0 10px; }
+  .sub { color: var(--text-2); font-size: 14px; margin-top: 6px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 6px; }
+  .chip { background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 5px 14px; font-size: 13px; color: var(--text-2); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; margin: 12px 0; box-shadow: 0 1px 3px rgba(16,24,40,.04); }
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin: 18px 0; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; text-align: center; }
+  .stat .num { font-size: 32px; font-weight: 700; color: var(--primary); letter-spacing: -1px; }
+  .stat .num.ok { color: var(--ok); }
+  .stat .lbl { font-size: 13px; color: var(--text-2); margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--primary-light); color: #33406b; font-weight: 600; font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  .pass { color: var(--ok); font-weight: 600; }
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge.pass { background: var(--ok-bg); color: var(--ok); }
+  .badge.fixed { background: #fef3c7; color: #b45309; }
+  .bug-card { border-left: 4px solid #f59e0b; background: #fffbeb; border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .bug-card h4 { color: #92400e; font-size: 14px; margin-bottom: 6px; }
+  .bug-card p { font-size: 13.5px; color: #78350f; }
+  .bug-card code { background: #fff; border: 1px solid #fde68a; border-radius: 5px; padding: 1px 6px; font-size: 12.5px; }
+  .imgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin: 14px 0; }
+  .imgs figure { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .imgs img { width: 100%; height: auto; display: block; }
+  .imgs figcaption { font-size: 12.5px; color: var(--text-2); padding: 8px 12px; }
+  .foot { text-align: center; color: var(--text-2); font-size: 13px; margin-top: 32px; }
+  code, .mono { font-family: "SF Mono", "JetBrains Mono", Consolas, monospace; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>DCAI 授权系统 · 全站 UI 优化回归测试报告</h1>
+  <div class="sub">Apple 流体界面设计统一视觉 + 背景图多设备适配 + 二级折叠导航重构</div>
+  <div class="meta">
+    <span class="chip">版本 V1.3.0</span>
+    <span class="chip">测试环境 127.0.0.1:8080（宝塔 php-cgi）</span>
+    <span class="chip">日期 2026-09-05</span>
+    <span class="chip">工具 agent-browser 0.36.0 + Python urllib</span>
+  </div>
+
+  <div class="summary">
+    <div class="stat"><div class="num ok">29/29</div><div class="lbl">静态 HTTP 回归通过</div></div>
+    <div class="stat"><div class="num ok">18</div><div class="lbl">真实浏览器交互场景通过</div></div>
+    <div class="stat"><div class="num">3</div><div class="lbl">发现并修复 BUG</div></div>
+    <div class="stat"><div class="num">0</div><div class="lbl">已知遗留 BUG</div></div>
+  </div>
+
+  <h2>一、优化内容概览</h2>
+  <div class="card">
+    <table>
+      <tr><th style="width:150px">维度</th><th>改动说明</th></tr>
+      <tr><td>视觉统一</td><td>两套主题色统一为 <code>#4f6ef7</code>；引入 Apple 流体弹簧曲线 <code>cubic-bezier(.32,.72,0,1)</code>；按钮按下缩放、弹窗/登录入场动画、<code>prefers-reduced-motion</code> 无障碍降级。</td></tr>
+      <tr><td>背景图</td><td>4 张 SVG 软渐变背景（admin/shop × 桌面/移动端），<code>background-attachment:fixed</code>，移动端自动切换简化背景，不干扰文字可读性。</td></tr>
+      <tr><td>后台导航</td><td>原 17 项平铺 → 6 主题组（概览/产品与授权/实例运维/分发升级/商城运营/系统），二级目录默认折叠、点击展开/收起、当前页所在组自动展开。</td></tr>
+      <tr><td>商城导航</td><td>购物组 + 账户组（未登录）/ 用户名组（已登录），移动端 ☰ 抽屉菜单。</td></tr>
+      <tr><td>结构与路由</td><td>未改动任何页面 URL、表单 action、控制器逻辑，仅外观与导航结构。</td></tr>
+    </table>
+  </div>
+
+  <h2>二、回归测试结果</h2>
+  <h3>2.1 静态 HTTP 回归（Python，29 项全过）</h3>
+  <div class="card">
+    <table>
+      <tr><th>类别</th><th>覆盖项</th><th>结果</th></tr>
+      <tr><td>后台认证</td><td>后台登录（admin/admin123 + CSRF）</td><td><span class="badge pass">PASS</span></td></tr>
+      <tr><td>后台页面 ×19</td><td>dashboard / products / packages / licenses / machines / offline_activate / instances / commands / popups / updates / system_update / modules / skills / orders / logs / settings / admins / 2fa + （含 nav-group 渲染校验）</td><td><span class="badge pass">PASS</span></td></tr>
+      <tr><td>商城页面 ×6</td><td>home / login / register / licenses / orders / trial（含 data-nav-toggle 渲染校验）</td><td><span class="badge pass">PASS</span></td></tr>
+      <tr><td>核心交互</td><td>商城注册（HTTP 200）/ 授权码搜索 / CSV 导出 / API 健康检查</td><td><span class="badge pass">PASS</span></td></tr>
+    </table>
+  </div>
+
+  <h3>2.2 真实浏览器交互回归（18 项场景全过）</h3>
+  <div class="card">
+    <table>
+      <tr><th>#</th><th>测试场景</th><th>结果</th></tr>
+      <tr><td>1</td><td>后台登录 → 跳转 dashboard</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>2</td><td>导航初态：仅「概览」展开、其余 5 组折叠</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>3</td><td>点击组头展开子项（状态机 o=true）</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>4</td><td>再次点击组头收起子项（o=false）</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>5</td><td>访问 products.php → 产品与授权组自动展开</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>6</td><td>二级导航跳转：授权码 / 产品 / 订单 / 设置 / 实例 / 系统升级（均 200）</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>7</td><td>后台搜索 kw=DCAI → 表格过滤为 6 行</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>8</td><td>后台写操作：生成授权码 modal 打开 + 提交成功（6→7 行）</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>9</td><td>商城首页：购物组展开、账户组折叠（初态正确）</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>10</td><td>商城点击「账户」组 → 展开登录/注册</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>11</td><td>商城注册 → 自动登录 → 显示用户名组</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>12</td><td>商城错误密码登录 → 提示「账号或密码错误」</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>13</td><td>移动端 390×844：后台侧栏 off-canvas 滑出</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>14</td><td>移动端：商城 ☰ 抽屉打开</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>15</td><td>背景图加载（admin/shop computedStyle 确认）</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>16</td><td>折叠菜单链接不可 Tab 聚焦（无障碍）</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>17</td><td>控制台无 JS 报错</td><td><span class="pass">✓ 通过</span></td></tr>
+      <tr><td>18</td><td>测试数据清理（授权码删除、无残留）</td><td><span class="pass">✓ 通过</span></td></tr>
+    </table>
+  </div>
+
+  <h2>三、发现并修复的问题（3 项，全部修复）</h2>
+
+  <div class="bug-card">
+    <h4>🔴 BUG 1：导航分组全部展开（核心缺陷）</h4>
+    <p>服务端 header.php 输出的是 HTML 属性 <code>hidden</code>（<code>&lt;div class="nav-group-body" hidden&gt;</code>），而 CSS/JS 操作的是 class <code>.hidden</code>。类选择器永远不匹配属性，导致初始 6 个分组全部展开。</p>
+    <p><strong>修复</strong>：服务端统一改为输出 <code>class="nav-group-body hidden"</code>，与 CSS/JS 约定一致。</p>
+  </div>
+
+  <div class="bug-card">
+    <h4>🟡 BUG 2：折叠菜单链接仍可被 Tab 聚焦（无障碍）</h4>
+    <p>折叠状态仅用 <code>opacity:0; pointer-events:none</code>，键盘用户仍可 Tab 到不可见的「登录/注册」链接。</p>
+    <p><strong>修复</strong>：增加 <code>visibility:hidden</code>，并设 <code>transition: visibility 0s linear</code>（展开立即可见、收起延迟到动画结束），兼顾动画与键盘可达性。</p>
+  </div>
+
+  <div class="bug-card">
+    <h4>🟡 BUG 3：商城二级导航/移动端菜单交互失效</h4>
+    <p>shop.js 是同步 IIFE，在 <code>&lt;head&gt;</code> 同步执行时 DOM 尚未就绪，<code>#shopMenuBtn</code> / <code>.nav-group</code> 均查不到，事件从未绑定。</p>
+    <p><strong>修复</strong>：<code>&lt;script defer&gt;</code>，脚本延迟到 DOM 解析完成后执行。</p>
+  </div>
+
+  <h2>四、关键页面截图</h2>
+  <div class="imgs">
+    <figure><img src="tmp/final_admin_dashboard.png" alt="后台仪表盘"><figcaption>后台仪表盘（概览组展开）</figcaption></figure>
+    <figure><img src="tmp/final_admin_expanded.png" alt="展开产品与授权"><figcaption>展开「产品与授权」组</figcaption></figure>
+    <figure><img src="tmp/final_admin_products.png" alt="产品管理"><figcaption>产品管理页</figcaption></figure>
+    <figure><img src="tmp/final_shop_home.png" alt="商城首页"><figcaption>商城首页（分组导航 + 背景图）</figcaption></figure>
+    <figure><img src="tmp/final_shop_login.png" alt="商城登录"><figcaption>商城登录页</figcaption></figure>
+    <figure><img src="tmp/final_admin_mobile_nav.png" alt="移动端侧栏"><figcaption>移动端侧栏滑出</figcaption></figure>
+  </div>
+
+  <div class="foot">DCAI 授权系统 V1.3.0 · 全站 UI 优化回归测试 · 结论：全部功能正常，无已知 BUG</div>
+</div>
+</body>
+</html>
